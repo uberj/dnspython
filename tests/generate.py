@@ -28,18 +28,23 @@ import dns.rdatatype
 import dns.rrset
 import dns.zone
 
+import pprint
+
+pp = pprint.PrettyPrinter(indent=2)
+
 import pdb
-example_text = """
+example_text = """$TTL 1h
 $ORIGIN 0.0.192.IN-ADDR.ARPA.
-$GENERATE 1-2 0 NS SERVER$.EXAMPLE.
+$GENERATE 1-2 0 CNAME SERVER$.EXAMPLE.
 """
 
-example_text1 = """
+example_text1 = """$TTL 1h
 $ORIGIN 0.0.192.IN-ADDR.ARPA.
 $GENERATE 1-10 fooo$ CNAME $.0
 """
 
-example_text2 = """@ 3600 IN SOA foo bar 1 2 3 4 5
+example_text2 = """$TTL 1h
+@ 3600 IN SOA foo bar 1 2 3 4 5
 @ 3600 IN NS ns1
 @ 3600 IN NS ns2
 bar.foo 300 IN MX 0 blaz.foo
@@ -48,7 +53,8 @@ ns2 3600 IN A 10.0.0.2
 $GENERATE 3-5 foo$ A 10.0.0.$
 """
 
-example_text3 = """@ 3600 IN SOA foo bar 1 2 3 4 5
+example_text3 = """$TTL 1h
+@ 3600 IN SOA foo bar 1 2 3 4 5
 @ 3600 IN NS ns1
 @ 3600 IN NS ns2
 bar.foo 300 IN MX 0 blaz.foo
@@ -56,8 +62,6 @@ ns1 3600 IN A 10.0.0.1
 ns2 3600 IN A 10.0.0.2
 $GENERATE 4-8/2 foo$ A 10.0.0.$
 """
-
-
 
 
 class GenerateTestCase(unittest.TestCase):
@@ -92,23 +96,27 @@ class GenerateTestCase(unittest.TestCase):
                 300,
                 dns.rdata.from_text(dns.rdataclass.IN, dns.rdatatype.MX,
                                     '0 blaz.foo')),
-               (dns.name.from_text('ns1', None),
+                (dns.name.from_text('ns1', None),
                 3600,
                 dns.rdata.from_text(dns.rdataclass.IN, dns.rdatatype.A,
                                     '10.0.0.1')),
-               (dns.name.from_text('ns2', None),
+                (dns.name.from_text('ns2', None),
                 3600,
                 dns.rdata.from_text(dns.rdataclass.IN, dns.rdatatype.A,
                                     '10.0.0.2')),
-                (dns.name.from_text('foo3', None), 3600,
+                (dns.name.from_text('foo3', None),
+                3600,
                 dns.rdata.from_text(dns.rdataclass.IN, dns.rdatatype.A,
                                     '10.0.0.3')),
-                (dns.name.from_text('foo4', None), 3600,
+                (dns.name.from_text('foo4', None),
+                3600,
                 dns.rdata.from_text(dns.rdataclass.IN, dns.rdatatype.A,
                                     '10.0.0.4')),
-                (dns.name.from_text('foo5', None), 3600,
+                (dns.name.from_text('foo5', None),
+                3600,
                 dns.rdata.from_text(dns.rdataclass.IN, dns.rdatatype.A,
                                     '10.0.0.5'))]
+
         exl.sort()
         self.failUnless(l == exl)
 
@@ -152,8 +160,6 @@ class GenerateTestCase(unittest.TestCase):
         exl.sort()
         self.failUnless(l == exl)
 
-
-
 if __name__ == '__main__':
-    #unittest.main()
+    unittest.main()
     pass
