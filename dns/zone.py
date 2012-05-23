@@ -18,6 +18,9 @@
 from __future__ import generators
 
 import sys
+sys.path.insert(0, '../')
+
+import sys
 
 import dns.exception
 import dns.name
@@ -28,6 +31,9 @@ import dns.rdata
 import dns.rrset
 import dns.tokenizer
 import dns.ttl
+import dns.grange
+
+import pdb
 
 class BadZone(dns.exception.DNSException):
     """The zone is malformed."""
@@ -641,6 +647,111 @@ class _MasterReader(object):
         rds = n.find_rdataset(rdclass, rdtype, covers, True)
         rds.add(rd, ttl)
 
+    def _generate_line(self):
+        # range lhs [ttl] [class] type rhs [ comment ]
+        """Process one line containing the GENERATE statement from a DNS
+        master file."""
+        if self.current_origin is None:
+            raise UnknownOrigin
+
+        token = self.tok.get()
+        # Range (required)
+        try:
+            start, stop, step = dns.grange.from_text(token.value)
+            token = self.tok.get()
+            if not token.is_identifier():
+                raise dns.exception.SyntaxError
+        except:
+            raise dns.exception.SyntaxError
+
+        # lhs (required)
+        try:
+            lhs = token.value
+            token = self.tok.get()
+            if not token.is_identifier():
+                raise dns.exception.SyntaxError
+        except:
+            raise dns.exception.SyntaxError
+
+        # TODO, factor out parsing of TTL, Class, and Type from _rr_line and
+        # _generate_line
+        # TTL
+        try:
+            ttl = dns.ttl.from_text(token.value)
+            token = self.tok.get()
+            if not token.is_identifier():
+                raise dns.exception.SyntaxError
+        except dns.ttl.BadTTL:
+            ttl = self.ttl
+        # Class
+        try:
+            rdclass = dns.rdataclass.from_text(token.value)
+            token = self.tok.get()
+            if not token.is_identifier():
+                raise dns.exception.SyntaxError
+        except dns.exception.SyntaxError:
+            raise dns.exception.SyntaxError
+        except:
+            rdclass = self.zone.rdclass
+        if rdclass != self.zone.rdclass:
+            raise dns.exception.SyntaxError("RR class is not zone's class")
+        # Type
+        try:
+            rdtype = dns.rdatatype.from_text(token.value)
+            token = self.tok.get()
+            if not token.is_identifier():
+                raise dns.exception.SyntaxError
+        except:
+            raise dns.exception.SyntaxError("unknown rdatatype '%s'" %
+                    token.value)
+
+        # lhs (required)
+        try:
+            rhs = token.value
+        except:
+            raise dns.exception.SyntaxError
+
+        # TODO, what to do about comments?
+        for i in range(start, stop + 1, step):
+            # +1 because it's inclusive
+            # Make names
+            name = lhs.replace('$', str(i))
+            rdata = rhs.replace('$', str(i))
+
+            self.last_name = dns.name.from_text(name, self.current_origin)
+            name = self.last_name
+            if not name.is_subdomain(self.zone.origin):
+                self._eat_line()
+                return
+            if self.relativize:
+                name = name.relativize(self.zone.origin)
+
+            n = self.zone.nodes.get(name)
+            if n is None:
+                n = self.zone.node_factory()
+                self.zone.nodes[name] = n
+            try:
+                rd = dns.rdata.from_text(rdclass, rdtype, rdata,
+                                         self.current_origin, False)
+            except dns.exception.SyntaxError:
+                # Catch and reraise.
+                (ty, va) = sys.exc_info()[:2]
+                raise va
+            except:
+                # All exceptions that occur in the processing of rdata
+                # are treated as syntax errors.  This is not strictly
+                # correct, but it is correct almost all of the time.
+                # We convert them to syntax errors so that we can emit
+                # helpful filename:line info.
+                (ty, va) = sys.exc_info()[:2]
+                raise dns.exception.SyntaxError("caught exception %s: %s" %
+                        (str(ty), str(va)))
+
+            rd.choose_relativity(self.zone.origin, self.relativize)
+            covers = rd.covers()
+            rds = n.find_rdataset(rdclass, rdtype, covers, True)
+            rds.add(rd, ttl)
+
     def read(self):
         """Read a DNS master file and build a zone object.
 
@@ -701,6 +812,8 @@ class _MasterReader(object):
                         self.tok = dns.tokenizer.Tokenizer(self.current_file,
                                                            filename)
                         self.current_origin = new_origin
+                    elif u == '$GENERATE':
+                        self._generate_line()
                     else:
                         raise dns.exception.SyntaxError("Unknown master file directive '" + u + "'")
                     continue

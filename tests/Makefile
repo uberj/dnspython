@@ -22,5 +22,6 @@ check: test
 test:
 	@for i in *.py; do \
 		echo "Running $$i:"; \
+		export PYTHONPATH="../"; \
 		${PYTHON} $$i || exit 1; \
 	done
