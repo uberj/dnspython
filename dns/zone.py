@@ -21,6 +21,7 @@ import sys
 sys.path.insert(0, '../')
 
 import sys
+import re
 
 import dns.exception
 import dns.name
@@ -33,7 +34,6 @@ import dns.tokenizer
 import dns.ttl
 import dns.grange
 
-import pdb
 
 class BadZone(dns.exception.DNSException):
     """The zone is malformed."""
@@ -711,12 +711,58 @@ class _MasterReader(object):
         except:
             raise dns.exception.SyntaxError
 
-        # TODO, what to do about comments?
+        # Here we catch everything in '{' '}' in a group so we can replace it
+        # with ''.
+        is_generate1 = re.compile("^.*\$({(\+|-?)(\d+),(\d+),(.)}).*$")
+        is_generate2 = re.compile("^.*\$({(\+|-?)(\d+)}).*$")
+        is_generate3 = re.compile("^.*\$({(\+|-?)(\d+),(\d+)}).*$")
         for i in range(start, stop + 1, step):
             # +1 because it's inclusive
+
+            # Sometimes there are modifiers in the hostname. These come after
+            # the dollar sign. They are in the form: ${offset[,width[,base]]}.
             # Make names
-            name = lhs.replace('$', str(i))
-            rdata = rhs.replace('$', str(i))
+            if lhs.startswith("wp-db49{-10,2,d}"):
+                pass
+            g1 = is_generate1.match(lhs)
+            if g1:
+                mod, sign, offset, width, base = g1.groups()
+                if sign == '':
+                    sign = '+'
+            g2 = is_generate2.match(lhs)
+            if g2:
+                mod, sign, offset = g2.groups()
+                if sign == '':
+                    sign = '+'
+                width = 0
+                base = 'd'
+            g3 = is_generate3.match(lhs)
+            if g3:
+                mod, sign, offset, width = g1.groups()
+                if sign == '':
+                    sign = '+'
+                width = g1.groups()[2]
+                base = 'd'
+
+            if not (g1 or g2 or g3):
+                mod = ''
+                sign = '+'
+                offset = 0
+                width = 0
+                base = 'd'
+
+            if base != 'd':
+                raise NotImplemented
+
+            if sign == '+':
+                index = i + int(offset)
+                index = str(index).zfill(int(width))
+            if sign == '-':
+                index = i - int(offset)
+                index = str(index).zfill(int(width))
+
+            name = lhs.replace('$%s' % (mod), index)
+            rdata = rhs.replace('$', index)
 
             self.last_name = dns.name.from_text(name, self.current_origin)
             name = self.last_name
