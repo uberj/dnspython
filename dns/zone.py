@@ -722,8 +722,6 @@ class _MasterReader(object):
             # Sometimes there are modifiers in the hostname. These come after
             # the dollar sign. They are in the form: ${offset[,width[,base]]}.
             # Make names
-            if lhs.startswith("wp-db49{-10,2,d}"):
-                pass
             g1 = is_generate1.match(lhs)
             if g1:
                 mod, sign, offset, width, base = g1.groups()
@@ -756,13 +754,13 @@ class _MasterReader(object):
 
             if sign == '+':
                 index = i + int(offset)
-                index = str(index).zfill(int(width))
+                zfindex = str(index).zfill(int(width))
             if sign == '-':
                 index = i - int(offset)
-                index = str(index).zfill(int(width))
+                zfindex = str(index).zfill(int(width))
 
-            name = lhs.replace('$%s' % (mod), index)
-            rdata = rhs.replace('$', index)
+            name = lhs.replace('$%s' % (mod), zfindex)
+            rdata = rhs.replace('$', str(index))
 
             self.last_name = dns.name.from_text(name, self.current_origin)
             name = self.last_name
