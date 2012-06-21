@@ -123,6 +123,15 @@ ns2 3600 IN A 10.0.0.2
 $GENERATE 11-12 wp-db${-10,2,d} IN A 10.10.16.0
 $GENERATE 11-13     sync${-10}.db   IN  A   10.10.16.0
 """
+example_text10 = """$TTL 1h
+@ 3600 IN SOA foo bar 1 2 3 4 5
+@ 3600 IN NS ns1
+@ 3600 IN NS ns2
+bar.foo 300 IN MX 0 blaz.foo
+ns1 3600 IN A 10.0.0.1
+ns2 3600 IN A 10.0.0.2
+$GENERATE 27-28 $.2 PTR zlb${-26}.oob
+"""
 
 
 class GenerateTestCase(unittest.TestCase):
@@ -444,6 +453,47 @@ class GenerateTestCase(unittest.TestCase):
                                     '10.10.16.0'))]
         exl.sort()
         self.failUnless(l == exl)
+
+    def testGenerate7(self):
+        z = dns.zone.from_text(example_text10, 'example.', relativize=True)
+        l = list(z.iterate_rdatas())
+        l.sort()
+        exl = [(dns.name.from_text('@', None),
+                3600L,
+                dns.rdata.from_text(dns.rdataclass.IN, dns.rdatatype.NS,
+                                    'ns1')),
+               (dns.name.from_text('@', None),
+                3600L,
+                dns.rdata.from_text(dns.rdataclass.IN, dns.rdatatype.NS,
+                                    'ns2')),
+               (dns.name.from_text('@', None),
+                3600L,
+                dns.rdata.from_text(dns.rdataclass.IN, dns.rdatatype.SOA,
+                                    'foo bar 1 2 3 4 5')),
+               (dns.name.from_text('bar.foo', None),
+                300L,
+                dns.rdata.from_text(dns.rdataclass.IN, dns.rdatatype.MX,
+                                    '0 blaz.foo')),
+               (dns.name.from_text('ns1', None),
+                3600L,
+                dns.rdata.from_text(dns.rdataclass.IN, dns.rdatatype.A,
+                                    '10.0.0.1')),
+               (dns.name.from_text('ns2', None),
+                3600L,
+                dns.rdata.from_text(dns.rdataclass.IN, dns.rdatatype.A,
+                                    '10.0.0.2')),
+
+                (dns.name.from_text('27.2', None), 3600L,
+                dns.rdata.from_text(dns.rdataclass.IN, dns.rdatatype.PTR,
+                                    'zlb1.oob')),
+
+                (dns.name.from_text('28.2', None), 3600L,
+                dns.rdata.from_text(dns.rdataclass.IN, dns.rdatatype.PTR,
+                                    'zlb2.oob'))]
+
+        exl.sort()
+        self.failUnless(l == exl)
+
 
 if __name__ == '__main__':
     unittest.main()

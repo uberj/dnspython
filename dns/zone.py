@@ -647,6 +647,47 @@ class _MasterReader(object):
         rds = n.find_rdataset(rdclass, rdtype, covers, True)
         rds.add(rd, ttl)
 
+    def _parse_modify(self, side):
+        # Here we catch everything in '{' '}' in a group so we can replace it
+        # with ''.
+        is_generate1 = re.compile("^.*\$({(\+|-?)(\d+),(\d+),(.)}).*$")
+        is_generate2 = re.compile("^.*\$({(\+|-?)(\d+)}).*$")
+        is_generate3 = re.compile("^.*\$({(\+|-?)(\d+),(\d+)}).*$")
+        # Sometimes there are modifiers in the hostname. These come after
+        # the dollar sign. They are in the form: ${offset[,width[,base]]}.
+        # Make names
+        g1 = is_generate1.match(side)
+        if g1:
+            mod, sign, offset, width, base = g1.groups()
+            if sign == '':
+                sign = '+'
+        g2 = is_generate2.match(side)
+        if g2:
+            mod, sign, offset = g2.groups()
+            if sign == '':
+                sign = '+'
+            width = 0
+            base = 'd'
+        g3 = is_generate3.match(side)
+        if g3:
+            mod, sign, offset, width = g1.groups()
+            if sign == '':
+                sign = '+'
+            width = g1.groups()[2]
+            base = 'd'
+
+        if not (g1 or g2 or g3):
+            mod = ''
+            sign = '+'
+            offset = 0
+            width = 0
+            base = 'd'
+
+        if base != 'd':
+            raise NotImplemented
+
+        return mod, sign, offset, width, base
+
     def _generate_line(self):
         # range lhs [ttl] [class] type rhs [ comment ]
         """Process one line containing the GENERATE statement from a DNS
@@ -711,56 +752,28 @@ class _MasterReader(object):
         except:
             raise dns.exception.SyntaxError
 
-        # Here we catch everything in '{' '}' in a group so we can replace it
-        # with ''.
-        is_generate1 = re.compile("^.*\$({(\+|-?)(\d+),(\d+),(.)}).*$")
-        is_generate2 = re.compile("^.*\$({(\+|-?)(\d+)}).*$")
-        is_generate3 = re.compile("^.*\$({(\+|-?)(\d+),(\d+)}).*$")
+
+        lmod, lsign, loffset, lwidth, lbase = self._parse_modify(lhs)
+        rmod, rsign, roffset, rwidth, rbase = self._parse_modify(rhs)
         for i in range(start, stop + 1, step):
             # +1 because it's inclusive
 
-            # Sometimes there are modifiers in the hostname. These come after
-            # the dollar sign. They are in the form: ${offset[,width[,base]]}.
-            # Make names
-            g1 = is_generate1.match(lhs)
-            if g1:
-                mod, sign, offset, width, base = g1.groups()
-                if sign == '':
-                    sign = '+'
-            g2 = is_generate2.match(lhs)
-            if g2:
-                mod, sign, offset = g2.groups()
-                if sign == '':
-                    sign = '+'
-                width = 0
-                base = 'd'
-            g3 = is_generate3.match(lhs)
-            if g3:
-                mod, sign, offset, width = g1.groups()
-                if sign == '':
-                    sign = '+'
-                width = g1.groups()[2]
-                base = 'd'
+            if lsign == '+':
+                lindex = i + int(loffset)
+            elif lsign == '-':
+                lindex = i - int(loffset)
 
-            if not (g1 or g2 or g3):
-                mod = ''
-                sign = '+'
-                offset = 0
-                width = 0
-                base = 'd'
+            if rsign == '-':
+                rindex = i - int(roffset)
+            elif rsign == '+':
+                rindex = i + int(roffset)
 
-            if base != 'd':
-                raise NotImplemented
+            lzfindex = str(lindex).zfill(int(lwidth))
+            rzfindex = str(rindex).zfill(int(rwidth))
 
-            if sign == '+':
-                index = i + int(offset)
-                zfindex = str(index).zfill(int(width))
-            if sign == '-':
-                index = i - int(offset)
-                zfindex = str(index).zfill(int(width))
 
-            name = lhs.replace('$%s' % (mod), zfindex)
-            rdata = rhs.replace('$', str(index))
+            name = lhs.replace('$%s' % (lmod), lzfindex)
+            rdata = rhs.replace('$%s' % (rmod), rzfindex)
 
             self.last_name = dns.name.from_text(name, self.current_origin)
             name = self.last_name
