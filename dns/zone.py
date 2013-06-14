@@ -20,6 +20,9 @@ from __future__ import generators
 import sys
 import re
 
+import sys
+import re
+
 import dns.exception
 import dns.name
 import dns.node
