@@ -45,8 +45,9 @@ class MXBase(dns.rdata.Rdata):
         preference = tok.get_uint16()
         exchange = tok.get_name()
         exchange = exchange.choose_relativity(origin, relativize)
+        rd = dns.rdata.with_comment(tok, cls(rdclass, rdtype, preference, exchange))
         tok.get_eol()
-        return cls(rdclass, rdtype, preference, exchange)
+        return rd
 
     from_text = classmethod(from_text)
 

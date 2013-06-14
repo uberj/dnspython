@@ -128,9 +128,9 @@ class Rdata(object):
     """Base class for all DNS rdata types.
     """
 
-    __slots__ = ['rdclass', 'rdtype']
+    __slots__ = ['rdclass', 'rdtype', 'comment']
 
-    def __init__(self, rdclass, rdtype):
+    def __init__(self, rdclass, rdtype, comment=None):
         """Initialize an rdata.
         @param rdclass: The rdata class
         @type rdclass: int
@@ -140,6 +140,7 @@ class Rdata(object):
 
         self.rdclass = rdclass
         self.rdtype = rdtype
+        self.comment = comment
 
     def covers(self):
         """DNS SIG/RRSIG rdatas apply to a specific type; this type is
@@ -476,3 +477,12 @@ def from_wire(rdclass, rdtype, wire, current, rdlen, origin = None):
     wire = dns.wiredata.maybe_wrap(wire)
     cls = get_rdata_class(rdclass, rdtype)
     return cls.from_wire(rdclass, rdtype, wire, current, rdlen, origin)
+
+
+def with_comment(tok, rd):
+    token = tok.get(want_comment=True)
+    if token.is_comment():
+        rd.comment = token.value
+    else:
+        tok.unget(token)
+    return rd

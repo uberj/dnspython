@@ -37,8 +37,9 @@ class A(dns.rdata.Rdata):
 
     def from_text(cls, rdclass, rdtype, tok, origin = None, relativize = True):
         address = tok.get_identifier()
+        rd = dns.rdata.with_comment(tok, cls(rdclass, rdtype, address))
         tok.get_eol()
-        return cls(rdclass, rdtype, address)
+        return rd
 
     from_text = classmethod(from_text)
 

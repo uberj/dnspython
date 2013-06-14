@@ -52,8 +52,9 @@ class SRV(dns.rdata.Rdata):
         port = tok.get_uint16()
         target = tok.get_name(None)
         target = target.choose_relativity(origin, relativize)
+        rd = dns.rdata.with_comment(tok, cls(rdclass, rdtype, priority, weight, port, target))
         tok.get_eol()
-        return cls(rdclass, rdtype, priority, weight, port, target)
+        return rd
 
     from_text = classmethod(from_text)
 

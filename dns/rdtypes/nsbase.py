@@ -32,6 +32,7 @@ class NSBase(dns.rdata.Rdata):
     def __init__(self, rdclass, rdtype, target):
         super(NSBase, self).__init__(rdclass, rdtype)
         self.target = target
+        self.comment = ''
 
     def to_text(self, origin=None, relativize=True, **kw):
         target = self.target.choose_relativity(origin, relativize)
@@ -40,8 +41,9 @@ class NSBase(dns.rdata.Rdata):
     def from_text(cls, rdclass, rdtype, tok, origin = None, relativize = True):
         target = tok.get_name()
         target = target.choose_relativity(origin, relativize)
+        rd = dns.rdata.with_comment(tok, cls(rdclass, rdtype, target))
         tok.get_eol()
-        return cls(rdclass, rdtype, target)
+        return rd
 
     from_text = classmethod(from_text)
 
